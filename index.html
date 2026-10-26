@@ -1,0 +1,1124 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>アルカナカウンター</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* 縦スクロール表示ではページ全体を縦に伸ばす */
+html.scroll-mode {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html.scroll-mode body {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+body.scroll-mode main {
+  height: auto;
+  min-height: 100vh;
+}
+
+body.scroll-mode .grid {
+  flex: none;
+  min-height: 0;
+  grid-template-rows: none;
+}
+
+body.scroll-mode .item {
+  min-height: 110px;
+}
+
+body {
+  font-family: "Meiryo", "Yu Gothic", sans-serif;
+  color: #263247;
+  background: #f1f4f8;
+  padding: 8px;
+}
+
+main {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+header, footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.top-total {
+  font-size: clamp(13px, 1.7vw, 21px);
+  font-weight: bold;
+  white-space: nowrap;
+  color: #263247;
+}
+
+.layout-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: clamp(10px, 1vw, 13px);
+}
+
+.layout-picker select {
+  max-width: 100px;
+  padding: 5px 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #263247;
+  font: inherit;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(14px, 2vw, 24px);
+  white-space: nowrap;
+}
+
+.description {
+  font-size: clamp(9px, 1vw, 13px);
+  color: #667085;
+  text-align: right;
+}
+
+.settings-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-size: clamp(10px, 1vw, 13px);
+}
+
+.settings-picker select {
+  max-width: 115px;
+  padding: 5px 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #263247;
+  font: inherit;
+}
+
+.grid {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: clamp(3px, 0.5vw, 7px);
+}
+
+.item {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1px, 0.35vh, 5px);
+  padding: 3px;
+  background: #ffffff;
+  border: 2px solid #d9e0e9;
+  border-radius: 9px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.item.full {
+  background: #dff3e7;
+  border-color: #45a875;
+}
+
+.item.marked {
+  background: #ffe5e5;
+  border-color: #e02424;
+  border-width: 3px;
+}
+
+.name {
+  font-weight: bold;
+  font-size: clamp(11px, 1.4vw, 19px);
+  line-height: 1.15;
+}
+
+/* 縦表示では枠の高さに合わせて内容を縮め、数字が切れないようにする */
+.grid.controls-bottom .item {
+  position: relative;
+  gap: 0;
+  justify-content: space-evenly;
+}
+/* 縦表示ではアイコンを右上に重ね、圧縮表示でも縦方向の場所を取らない */
+.grid.controls-bottom .arcana-icons {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  width: auto;
+  min-height: 0;
+  gap: 1px;
+  justify-content: flex-end;
+}
+.grid.controls-bottom .arcana-icon {
+  flex: 0 0 auto;
+  width: clamp(12px, 1.55vw, 19px);
+  height: clamp(12px, 1.55vw, 19px);
+  font-size: clamp(9px, 1.05vw, 14px);
+}
+.grid.controls-bottom .arcana-icon.icon-s {
+  width: clamp(13px, 1.7vw, 20px);
+  height: clamp(14px, 1.9vw, 22px);
+  font-size: clamp(8px, 0.95vw, 12px);
+}
+.grid.controls-bottom .name {
+  box-sizing: border-box;
+  width: 100%;
+  padding-right: 18px;
+}
+.grid.controls-bottom .name,
+.grid.controls-bottom .counter-area,
+.grid.controls-bottom .controls {
+  flex-shrink: 0;
+}
+.grid.controls-bottom .name {
+  font-size: clamp(9px, min(1.3vw, 1.9vh), 16px);
+  line-height: 1.05;
+}
+/* 枠番名の文字サイズは5段階で共通設定 */
+.grid[data-name-size="1"] .name { font-size: clamp(8px, min(0.85vw, 1.2vh), 10px) !important; }
+.grid[data-name-size="2"] .name { font-size: clamp(9px, min(1.05vw, 1.5vh), 12px) !important; }
+.grid[data-name-size="3"] .name { font-size: clamp(10px, min(1.3vw, 1.9vh), 16px) !important; }
+.grid[data-name-size="4"] .name { font-size: clamp(12px, min(1.6vw, 2.2vh), 19px) !important; }
+.grid[data-name-size="5"] .name { font-size: clamp(14px, min(1.9vw, 2.6vh), 22px) !important; }
+.grid.controls-bottom .value {
+  font-size: clamp(16px, min(3vw, 4.1vh), 34px);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.grid.controls-bottom .favorite,
+.grid.controls-bottom .mark-button {
+  width: clamp(18px, 2.5vw, 30px);
+  height: clamp(15px, 2.2vh, 23px);
+  font-size: clamp(14px, 1.8vw, 22px);
+}
+.grid.controls-bottom .controls button {
+  width: clamp(22px, 3vw, 38px);
+  height: clamp(19px, 3vh, 32px);
+  font-size: clamp(14px, 1.8vw, 23px);
+}
+
+.counter-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(2px, 0.35vh, 5px);
+  min-width: 0;
+}
+
+.grid.controls-right .item {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: clamp(3px, 0.5vw, 7px);
+  padding: clamp(3px, 0.5vw, 7px);
+}
+
+.grid.controls-right .name {
+  flex: 0 0 28%;
+  font-size: clamp(16px, 2.5vw, 30px);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.grid.controls-right .counter-area {
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: clamp(2px, 0.35vh, 5px);
+}
+
+.grid.controls-right .favorite-row {
+  gap: 2px;
+}
+
+.grid.controls-right .favorite,
+.grid.controls-right .mark-button {
+  width: clamp(20px, 2.5vw, 32px);
+  height: clamp(18px, 2.5vh, 25px);
+}
+
+.grid.controls-right .controls {
+  flex-direction: column;
+  gap: clamp(2px, 0.35vh, 5px);
+}
+
+.grid.controls-right .controls button {
+  width: clamp(24px, 3vw, 38px);
+  height: clamp(22px, 3.5vh, 34px);
+}
+
+.value {
+  font-size: clamp(21px, 3.6vw, 44px);
+  font-weight: bold;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.item.full .value {
+  color: #187447;
+}
+
+.favorite-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.mark-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(24px, 3vw, 36px);
+  height: clamp(20px, 3vh, 28px);
+  padding: 0;
+  background: transparent;
+  color: #9aa4b2;
+  font-size: clamp(19px, 2.2vw, 27px);
+  line-height: 1;
+}
+
+.mark-button.active {
+  color: #e02424;
+}
+
+button {
+  font-family: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.favorite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(24px, 3vw, 36px);
+  height: clamp(20px, 3vh, 28px);
+  padding: 0;
+  background: transparent;
+  color: #9aa4b2;
+  font-size: clamp(17px, 2vw, 25px);
+  line-height: 1;
+}
+
+.favorite.active {
+  color: #e6a000;
+}
+
+.controls {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(4px, 0.6vw, 8px);
+}
+
+.grid.controls-right .controls {
+  flex-direction: column;
+  gap: clamp(2px, 0.35vh, 5px);
+}
+
+.controls button {
+  width: clamp(27px, 3.5vw, 48px);
+  height: clamp(25px, 4vh, 40px);
+  padding: 0;
+  font-size: clamp(16px, 2vw, 26px);
+  line-height: 1;
+}
+
+.minus {
+  background: #e8edf3;
+  color: #344054;
+}
+
+.plus {
+  background: #356bd8;
+  color: #ffffff;
+}
+
+button:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+button:focus-visible {
+  outline: 2px solid #5689e5;
+  outline-offset: 2px;
+}
+
+.total {
+  font-size: clamp(11px, 1.4vw, 17px);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.reset {
+  background: #c83c48;
+  color: #ffffff;
+  padding: clamp(5px, 0.8vh, 10px) clamp(8px, 1.2vw, 18px);
+  font-size: clamp(10px, 1.1vw, 15px);
+  white-space: nowrap;
+}
+
+
+/* テーマ共通 */
+body { --page-bg:#f1f4f8; --text:#263247; --panel:#ffffff; --border:#d9e0e9; --muted:#667085; --accent:#356bd8; --button-text:#ffffff; background:var(--page-bg); color:var(--text); }
+.top-total { color:var(--text); }
+.description { color:var(--muted); }
+.layout-picker select, .settings-picker select { background:var(--panel); color:var(--text); border-color:var(--border); }
+.item { background:var(--panel); border-color:var(--border); color:var(--text); }
+.plus { background:var(--accent); color:var(--button-text); }
+.frame-visibility { flex:1 1 100%; width:100%; min-width:0; max-width:100%; box-sizing:border-box; display:flex; flex-wrap:wrap; align-items:center; align-content:flex-start; gap:3px; padding-top:3px; }
+.bottom-controls { width:100%; min-width:0; box-sizing:border-box; display:flex; flex-direction:column; align-items:stretch; gap:6px; padding-top:3px; }
+.frame-bulk { height:22px; padding:2px 7px; font-size:10px; color:var(--button-text); background:var(--accent); border:1px solid var(--border); border-radius:4px; }
+.theme-bottom { display:flex; align-items:center; justify-content:flex-end; gap:5px; margin-left:auto; font-size:11px; color:var(--text); }
+.theme-bottom select { max-width:90px; padding:3px 5px; border:1px solid var(--border); border-radius:5px; background:var(--panel); color:var(--text); font:inherit; }
+.bottom-tools { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:10px; width:100%; }
+.icon-setting, .icon-priority-setting { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text); white-space:nowrap; }
+.icon-setting select { max-width:90px; padding:3px 5px; border:1px solid var(--border); border-radius:5px; background:var(--panel); color:var(--text); font:inherit; }
+.icon-priority-setting input { margin:0; }
+.arcana-icons { display:flex; align-items:center; justify-content:center; gap:2px; min-height:18px; pointer-events:none; }
+.arcana-icon { display:inline-flex; align-items:center; justify-content:center; width:clamp(17px, 2vw, 25px); height:clamp(17px, 2vw, 25px); font-family:Arial,sans-serif; font-size:clamp(12px, 1.5vw, 18px); font-weight:900; line-height:1; color:#fff; text-shadow:0 1px 2px #111; filter:drop-shadow(0 1px 1px #555); }
+.arcana-icon.icon-v { color:#fff; background:linear-gradient(145deg,#536b86,#101c2e); clip-path:polygon(0 0,35% 0,50% 43%,65% 0,100% 0,70% 100%,30% 100%); }
+.arcana-icon.icon-p { color:#e9f8ff; font-style:italic; background:linear-gradient(135deg,#0b253f,#2e8bc0); border:1px solid #8fe1ff; border-radius:4px 1px 4px 1px; }
+.arcana-icon.icon-i { color:#fff5c2; background:linear-gradient(145deg,#a17b26,#46320c); border:1px solid #f7d879; border-radius:50%; }
+.arcana-icon.icon-s { width:clamp(18px, 2.1vw, 26px); height:clamp(20px, 2.4vw, 29px); color:#f4f8ff; background:linear-gradient(145deg,#7993b8,#263b5c); border:1px solid #dce8f7; clip-path:polygon(50% 0,95% 17%,88% 66%,50% 100%,12% 66%,5% 17%); font-size:clamp(10px, 1.3vw, 15px); }
+.item.has-arcana-icons .name { margin-top:0; }
+.frame-visibility-label { font-size:11px; font-weight:bold; margin-right:4px; }
+.frame-toggle { min-width:27px; height:22px; padding:2px 5px; font-size:10px; color:var(--text); background:var(--panel); border:1px solid var(--border); border-radius:4px; }
+.frame-toggle.is-hidden { opacity:.45; text-decoration:line-through; background:transparent; }
+.frame-toggle:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+.settings-picker.theme-picker select { max-width:150px; }
+
+/* 1：従来の明るいテーマ */
+body[data-theme="1"] { --page-bg:#f1f4f8; --text:#263247; --panel:#fff; --border:#d9e0e9; --muted:#667085; --accent:#356bd8; --button-text:#fff; }
+/* 2：ダークモード */
+body[data-theme="2"] { --page-bg:#111318; --text:#e7eaf0; --panel:#20242c; --border:#414855; --muted:#a6afbd; --accent:#527fe8; --button-text:#fff; }
+body[data-theme="2"] .item.full { background:#173d2d; border-color:#43a875; }
+body[data-theme="2"] .item.full .value { color:#7ee0a9; }
+body[data-theme="2"] .item.marked { background:#451e25; border-color:#ff4d61; }
+body[data-theme="2"] .minus { background:#3a414c; color:#f1f3f6; }
+body[data-theme="2"] .reset { background:#a92c3a; }
+/* 3：やや明るい水底 */
+body[data-theme="3"] { --page-bg:#b8e5e9; --text:#123b4a; --panel:#e1f7f4; --border:#6eb7c2; --muted:#326c78; --accent:#087e9a; --button-text:#fff; background-image:radial-gradient(ellipse at 15% 15%,rgba(255,255,255,.7),transparent 32%),radial-gradient(ellipse at 85% 80%,rgba(28,143,166,.25),transparent 35%),linear-gradient(145deg,#c9f0ed,#83cbd6); }
+body[data-theme="3"] .item { box-shadow:inset 0 0 14px rgba(45,153,169,.12); border-radius:14px 9px 14px 8px; }
+body[data-theme="3"] .item.full { background:#b9efcf; border-color:#329e83; }
+body[data-theme="3"] .item.marked { background:#ffe2e7; border-color:#d93659; }
+body[data-theme="3"] .minus { background:#c5e9ed; color:#164b5a; }
+/* 4：黄色と黒、平成中期ごろの街並みシルエット */
+body[data-theme="4"] { --page-bg:#ffd34f; --text:#24202a; --panel:#fff0a8; --border:#c56b27; --muted:#65451e; --accent:#e87522; --button-text:#fff7d7; background-color:#ffd34f; background-image:radial-gradient(ellipse at 82% 12%,rgba(255,126,38,.58),transparent 30%),radial-gradient(ellipse at 15% 78%,rgba(255,255,255,.55),transparent 34%),linear-gradient(118deg,transparent 0 42%,rgba(255,80,95,.12) 42% 44%,rgba(255,170,45,.16) 44% 46%,rgba(255,238,92,.18) 46% 48%,rgba(65,196,143,.14) 48% 50%,rgba(80,150,255,.14) 50% 52%,rgba(177,106,232,.12) 52% 54%,transparent 54%),linear-gradient(to top,rgba(37,31,31,.18) 0 3%,transparent 3%),linear-gradient(90deg,transparent 0 4%,rgba(37,31,31,.14) 4% 7%,transparent 7% 11%,rgba(37,31,31,.13) 11% 15%,transparent 15% 20%,rgba(37,31,31,.12) 20% 23%,transparent 23% 29%,rgba(37,31,31,.13) 29% 34%,transparent 34% 41%,rgba(37,31,31,.12) 41% 45%,transparent 45% 52%,rgba(37,31,31,.12) 52% 58%,transparent 58% 64%,rgba(37,31,31,.13) 64% 68%,transparent 68% 76%,rgba(37,31,31,.12) 76% 81%,transparent 81% 88%,rgba(37,31,31,.12) 88% 92%,transparent 92%); background-size:100% 100%; background-attachment:fixed; }
+body[data-theme="4"] main { background:linear-gradient(to top,rgba(232,117,34,.10) 0 2%,transparent 2%); }
+body[data-theme="4"] header::after { content:""; position:fixed; z-index:-1; left:0; right:0; bottom:0; height:10vh; pointer-events:none; opacity:.32; background:linear-gradient(90deg,transparent 0 4%,#252020 4% 7%,transparent 7% 11%,#252020 11% 15%,transparent 15% 20%,#252020 20% 23%,transparent 23% 29%,#252020 29% 34%,transparent 34% 41%,#252020 41% 45%,transparent 45% 52%,#252020 52% 58%,transparent 58% 64%,#252020 64% 68%,transparent 68% 76%,#252020 76% 81%,transparent 81% 88%,#252020 88% 92%,transparent 92%); clip-path:polygon(0 70%,8% 70%,8% 40%,15% 40%,15% 60%,23% 60%,23% 25%,31% 25%,31% 68%,40% 68%,40% 45%,48% 45%,48% 15%,56% 15%,56% 65%,65% 65%,65% 35%,73% 35%,73% 58%,82% 58%,82% 30%,90% 30%,90% 60%,100% 60%,100% 100%,0 100%); }
+body[data-theme="4"] .item { box-shadow:inset 0 -4px 0 rgba(232,117,34,.13); }
+body[data-theme="4"] .item.full { background:#3a3030; border-color:#ffb04b; color:#fff0b0; }
+body[data-theme="4"] .item.full .value { color:#fff0b0; }
+body[data-theme="4"] .item.marked { background:#fff1a8; border-color:#d11c24; }
+body[data-theme="4"] .item.full.marked { background:#000; border-color:#d11c24; color:#fff0b0; }
+body[data-theme="4"] .item.full.marked .value { color:#fff0b0; }
+body[data-theme="4"] .minus { background:#c56b27; color:#fff7d7; }
+body[data-theme="4"] .reset { background:#c56b27; color:#fff7d7; border:1px solid #f3a34b; }
+/* 5：横向に破れた紙、渦巻きと星 */
+body[data-theme="5"] { --page-bg:#09090c; --text:#f5eeee; --panel:#171419; --border:#a82735; --muted:#d4aab0; --accent:#c51f35; --button-text:#fff; background-color:#09090c; background-image:radial-gradient(circle at 14% 22%,#d72b42 0 1px,transparent 2px),radial-gradient(circle at 78% 66%,#d72b42 0 1px,transparent 2px),radial-gradient(circle at 55% 14%,#f1d7dc 0 1px,transparent 2px),repeating-radial-gradient(ellipse at 90% 10%,transparent 0 17px,rgba(177,27,48,.25) 18px 20px,transparent 21px 34px); background-size:53px 47px,67px 61px,43px 59px,auto; }
+body[data-theme="5"] .item { clip-path:polygon(0 4%,5% 0,10% 3%,16% 0,23% 3%,31% 0,39% 3%,47% 0,56% 3%,64% 0,72% 3%,80% 0,89% 3%,95% 0,100% 4%,98% 20%,100% 35%,98% 51%,100% 66%,98% 82%,100% 96%,93% 100%,84% 97%,75% 100%,65% 97%,55% 100%,44% 97%,34% 100%,24% 97%,14% 100%,5% 97%,0 100%,2% 82%,0 65%,2% 49%,0 33%,2% 18%); border-radius:0; }
+body[data-theme="5"] .item.full { background:#4b111d; border-color:#ff304b; }
+body[data-theme="5"] .item.full .value { color:#ffd0d5; }
+body[data-theme="5"] .item.marked { background:#252c22; border-color:#78a84d; }
+body[data-theme="5"] .item.full.marked { background:#252c22; border-color:#78a84d; }
+body[data-theme="5"] .item.full.marked .value { color:#b2e18a; }
+body[data-theme="5"] .minus { background:#30252b; color:#fff; }
+body[data-theme="5"] .reset { background:#c51f35; }
+body[data-theme="5"] .top-total { text-shadow:1px 1px #65101d; }
+
+/* 横幅が狭い場合：4列×6行 */
+@media (max-width: 520px) {
+  body {
+    padding: 4px;
+  }
+
+  main {
+    gap: 4px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .item {
+    padding: 2px;
+    gap: 2px;
+    border-radius: 5px;
+    border-width: 1px;
+  }
+
+  .name {
+    font-size: clamp(11px, 2.5vw, 15px);
+  }
+
+  .grid.controls-bottom .value {
+    font-size: clamp(16px, min(4vw, 3.5vh), 26px);
+  }
+
+  .controls {
+    gap: 4px;
+  }
+
+  .controls button {
+    width: clamp(26px, 6vw, 36px);
+    height: clamp(24px, 4vh, 34px);
+  }
+
+  .favorite {
+    width: 28px;
+    height: 22px;
+  }
+
+  .grid.controls-right .name {
+    flex-basis: 27%;
+    font-size: clamp(13px, 3vw, 20px);
+  }
+
+  .grid.controls-right .value {
+    font-size: clamp(18px, 4vw, 30px);
+  }
+
+  .grid.controls-right .controls button {
+    width: clamp(22px, 5vw, 30px);
+    height: clamp(22px, 4vh, 30px);
+  }
+}
+
+/* ウィンドウの高さが低い場合 */
+@media (max-height: 420px) {
+  body {
+    padding: 3px;
+  }
+
+  main {
+    gap: 2px;
+  }
+
+  .grid {
+    gap: 2px;
+  }
+
+  .item {
+    padding: 1px;
+    gap: 0;
+    border-radius: 4px;
+    border-width: 1px;
+  }
+
+  .value {
+    font-size: clamp(17px, 5vh, 26px);
+  }
+
+  .favorite {
+    height: 17px;
+    font-size: 17px;
+  }
+
+  .controls {
+    gap: 3px;
+  }
+
+  .controls button {
+    height: 22px;
+    width: clamp(23px, 3vw, 32px);
+    font-size: 17px;
+  }
+
+  .reset {
+    padding: 4px 8px;
+  }
+}
+
+/* 特に狭いウィンドウ：3列×8行 */
+@media (max-width: 300px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+  }
+
+  .description {
+    display: none;
+  }
+
+  .name {
+    font-size: 11px;
+  }
+
+  .value {
+    font-size: 18px;
+  }
+
+  .controls {
+    gap: 2px;
+  }
+
+  .controls button {
+    width: 25px;
+    height: 21px;
+    font-size: 15px;
+  }
+
+  .favorite {
+    height: 17px;
+    font-size: 16px;
+  }
+}
+</style>
+</head>
+
+<body>
+<main>
+
+  <header>
+    <div class="header-left">
+      <h1>アルカナカウンター</h1>
+      <div id="total" class="top-total">合計：0 / 72</div>
+    </div>
+    <div class="layout-picker">
+      <label for="layoutSelect">レイアウト</label>
+      <select id="layoutSelect">
+        <option value="3x8">3×8</option>
+        <option value="4x6" selected>4×6</option>
+        <option value="5x5">5×5</option>
+        <option value="6x4">6×4</option>
+        <option value="8x3">8×3</option>
+        <option value="10x3">10×3</option>
+      </select>
+      <label for="numberStyleSelect">表記</label>
+      <select id="numberStyleSelect">
+        <option value="numeric" selected>数字</option>
+        <option value="roman">ローマ数字</option>
+        <option value="major">大アルカナ</option>
+      </select>
+      <label for="nameSizeSelect">枠番文字</label>
+      <select id="nameSizeSelect" aria-label="枠番の文字の大きさ">
+        <option value="1">最小</option>
+        <option value="2">小</option>
+        <option value="3" selected>標準</option>
+        <option value="4">大</option>
+        <option value="5">最大</option>
+      </select>
+      <label for="buttonPositionSelect">枠の表示方式</label>
+      <select id="buttonPositionSelect">
+        <option value="bottom" selected>縦表示</option>
+        <option value="right">横表示</option>
+      </select>
+      <label for="displayModeSelect">表示方法</label>
+      <select id="displayModeSelect">
+        <option value="fit" selected>圧縮して全表示</option>
+        <option value="scroll">縦スクロール</option>
+      </select>
+    </div>
+  </header>
+
+  <div id="grid" class="grid"></div>
+
+  <footer>
+    <div class="description">☆お気に入り　⊕特殊マーク</div>
+    <div style="display:flex; gap:5px; align-items:center;">
+      <button id="favoriteReset" class="reset" type="button">☆リセット</button>
+      <button id="reset" class="reset" type="button">全リセット</button>
+    </div>
+  </footer>
+  <div class="bottom-controls">
+    <div id="frameVisibility" class="frame-visibility" aria-label="枠の表示切り替え">
+      <span class="frame-visibility-label">枠の表示：</span>
+      <button id="showAllFrames" type="button" class="frame-bulk">全表示</button>
+      <button id="hideAllFrames" type="button" class="frame-bulk">全消滅</button>
+    </div>
+    <div class="bottom-tools">
+      <div class="theme-bottom">
+        <label for="themeSelect">テーマ</label>
+        <select id="themeSelect" aria-label="テーマ">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </div>
+      <div class="icon-setting">
+        <label for="iconModeSelect">アイコン表示</label>
+        <select id="iconModeSelect" aria-label="アイコン表示">
+          <option value="off" selected>非表示</option>
+          <option value="3R">3R</option>
+          <option value="3P">3P</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </div>
+      <label class="icon-priority-setting"><input type="checkbox" id="iconPriorityToggle"> アイコン前詰め</label>
+      <button id="showIconFramesOnly" class="frame-bulk" type="button">アイコン持ちだけ表示</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+"use strict";
+
+// 24個の枠
+const names = [
+  "EN",
+  ...Array.from({ length: 22 }, (_, i) => String(i)),
+  "EX1",
+  "EX2"
+];
+
+// 初期値
+const values = Object.fromEntries(
+  names.map(name => [name, 0])
+);
+
+// お気に入り状態
+const favorites = Object.fromEntries(
+  names.map(name => [name, false])
+);
+
+// 特殊マークを付けられる枠
+const markableNames = new Set(["1", "3", "6", "17", "8", "20"]);
+const marked = Object.fromEntries(
+  names.map(name => [name, false])
+);
+
+const grid = document.getElementById("grid");
+const total = document.getElementById("total");
+const resetButton = document.getElementById("reset");
+const favoriteResetButton = document.getElementById("favoriteReset");
+const layoutSelect = document.getElementById("layoutSelect");
+const numberStyleSelect = document.getElementById("numberStyleSelect");
+const nameSizeSelect = document.getElementById("nameSizeSelect");
+const showIconFramesOnlyButton = document.getElementById("showIconFramesOnly");
+const buttonPositionSelect = document.getElementById("buttonPositionSelect");
+const displayModeSelect = document.getElementById("displayModeSelect");
+const themeSelect = document.getElementById("themeSelect");
+const iconModeSelect = document.getElementById("iconModeSelect");
+const iconPriorityToggle = document.getElementById("iconPriorityToggle");
+const frameVisibility = document.getElementById("frameVisibility");
+const showAllFramesButton = document.getElementById("showAllFrames");
+const hideAllFramesButton = document.getElementById("hideAllFrames");
+// ENは常時表示。EX2だけ初期状態では非表示。
+const visibleNames = Object.fromEntries(names.map(name => [name, name !== "EX2"]));
+
+// レイアウトは「列×行」で指定
+function applyLayout(value) {
+  const [columns, rows] = value.split("x").map(Number);
+  grid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+  if (displayModeSelect.value === "scroll") {
+    grid.style.gridTemplateRows = `repeat(${rows}, minmax(110px, auto))`;
+  } else {
+    grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+  }
+}
+
+function applyDisplayMode() {
+  const isScroll = displayModeSelect.value === "scroll";
+  document.documentElement.classList.toggle("scroll-mode", isScroll);
+  document.body.classList.toggle("scroll-mode", isScroll);
+  // レイアウトを再適用し、スクロール時は各行に十分な高さを確保
+  applyLayout(layoutSelect.value);
+}
+
+layoutSelect.addEventListener("change", () => applyLayout(layoutSelect.value));
+displayModeSelect.addEventListener("change", applyDisplayMode);
+numberStyleSelect.addEventListener("change", render);
+nameSizeSelect.addEventListener("change", () => {
+  grid.dataset.nameSize = nameSizeSelect.value;
+});
+iconModeSelect.addEventListener("change", render);
+iconPriorityToggle.addEventListener("change", render);
+function applyButtonPosition() {
+  const isHorizontal = buttonPositionSelect.value === "right";
+  grid.classList.toggle("controls-right", isHorizontal);
+  grid.classList.toggle("controls-bottom", !isHorizontal);
+}
+buttonPositionSelect.addEventListener("change", () => {
+  applyButtonPosition();
+  render();
+});
+themeSelect.addEventListener("change", () => {
+  document.body.dataset.theme = themeSelect.value;
+});
+
+// 画面下端に、各枠の表示・非表示ボタンを作成
+for (const name of names) {
+  // ENも個別の表示・非表示切り替えができる。全表示・全消滅では対象外。
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "frame-toggle";
+  if (!visibleNames[name]) button.classList.add("is-hidden");
+  button.textContent = displayName(name);
+  button.dataset.name = name;
+  button.title = displayName(name) + (visibleNames[name] ? "枠を非表示にする" : "枠を表示する");
+  button.setAttribute("aria-pressed", String(visibleNames[name]));
+  button.addEventListener("click", () => {
+    visibleNames[name] = !visibleNames[name];
+    if (!visibleNames[name]) {
+      values[name] = 0;
+      marked[name] = false;
+    }
+    button.classList.toggle("is-hidden", !visibleNames[name]);
+    button.setAttribute("aria-pressed", String(visibleNames[name]));
+    button.title = displayName(name) + (visibleNames[name] ? "枠を非表示にする" : "枠を表示する");
+    render();
+  });
+  frameVisibility.append(button);
+}
+
+function setAllFramesVisible(visible) {
+  for (const name of names) {
+    // ENは全消滅・全表示の対象外（常に表示し、値も保持）。
+    if (name === "EN") continue;
+    visibleNames[name] = visible;
+    if (!visible) {
+      values[name] = 0;
+      marked[name] = false;
+    }
+  }
+  for (const button of frameVisibility.querySelectorAll(".frame-toggle")) {
+    const name = button.dataset.name;
+    const visible = visibleNames[name];
+    button.classList.toggle("is-hidden", !visible);
+    button.setAttribute("aria-pressed", String(visible));
+    button.title = displayName(name) + (visible ? "枠を非表示にする" : "枠を表示する");
+  }
+  render();
+}
+
+showAllFramesButton.addEventListener("click", () => setAllFramesVisible(true));
+hideAllFramesButton.addEventListener("click", () => setAllFramesVisible(false));
+
+// 現在のアイコン設定でアイコンが付く枠だけを表示する。
+showIconFramesOnlyButton.addEventListener("click", () => {
+  const activeIcons = iconSets[iconModeSelect.value] || {};
+  if (Object.keys(activeIcons).length === 0) {
+    window.alert("先にアイコン表示を3R・3P・4・5のいずれかに設定してください。");
+    return;
+  }
+  const confirmed = window.confirm("現在アイコンが表示されている枠番だけを表示し、それ以外を非表示にしますか？\n非表示にした枠の数値と特殊マークはリセットされます。");
+  if (!confirmed) return;
+  for (const name of names) {
+    // ENは枠消しの対象外なので常に表示する。
+    if (name === "EN") continue;
+    const shouldShow = Boolean(activeIcons[name]);
+    visibleNames[name] = shouldShow;
+    if (!shouldShow) {
+      values[name] = 0;
+      marked[name] = false;
+    }
+  }
+  for (const button of frameVisibility.querySelectorAll(".frame-toggle")) {
+    const name = button.dataset.name;
+    const visible = visibleNames[name];
+    button.classList.toggle("is-hidden", !visible);
+    button.setAttribute("aria-pressed", String(visible));
+    button.title = displayName(name) + (visible ? "枠を非表示にする" : "枠を表示する");
+  }
+  render();
+});
+
+const romanNumerals = [
+  "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX",
+  "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII",
+  "XIX", "XX", "XXI"
+];
+
+function displayName(name) {
+  const specialNames = { "20": "永劫", "21": "審判", "EX1": "信念", "EX2": "EX" };
+  if (numberStyleSelect.value === "major") {
+    const majorNames = [
+      "愚者", "魔術師", "女教皇", "女帝", "皇帝", "法皇", "恋愛", "戦車", "正義", "隠者",
+      "運命", "剛毅", "刑死者", "死神", "節制", "悪魔", "塔", "星", "月", "太陽"
+    ];
+    if (/^(?:[0-9]|1[0-9])$/.test(name)) return majorNames[Number(name)];
+    if (name === "EX2") return "顧問官/道化師";
+  }
+  if (specialNames[name]) return specialNames[name];
+  if (numberStyleSelect.value === "roman" && /^(?:[1-9]|1\d)$/.test(name)) {
+    return romanNumerals[Number(name)];
+  }
+  return name;
+}
+
+// 各アイコン設定で表示する枠とアイコン種別。順序はV > P > I > S。
+const iconSets = {
+  "3R": { "0":"V", "21":"V", "3":"P", "6":"P", "20":"P", "13":"I", "19":"I", "2":"S" },
+  "3P": { "0":"V", "21":"V", "1":"P", "3":"P", "6":"P", "8":"P", "11":"P", "17":"P", "18":"P", "20":"P", "10":"I", "13":"I", "19":"I", "2":"S" },
+  "4":  { "0":"V", "1":"P", "2":"P", "4":"P", "7":"P", "10":"P", "17":"P", "8":"I", "20":"I", "6":"S" },
+  "5":  { "0":"V", "1":"P", "2":"P", "3":"P", "4":"P", "6":"P", "7":"P", "8":"P", "17":"P", "EX1":"P", "13":"I", "16":"I", "9":"S" }
+};
+const iconPriority = { V: 0, P: 1, I: 2, S: 3 };
+
+// 枠を描画
+function render() {
+  grid.replaceChildren();
+
+  // ENは常に先頭。お気に入りの優先度がアイコン前詰めより高い。
+  // アイコン前詰め時はV > P > I > Sの順で、アイコン付き枠を前に並べる。
+  const activeIcons = iconSets[iconModeSelect.value] || {};
+  const sortedNames = names
+    .map((name, index) => ({ name, index }))
+    .sort((a, b) => {
+      if (a.name === "EN") return b.name === "EN" ? 0 : -1;
+      if (b.name === "EN") return 1;
+      const favoriteDifference = Number(favorites[b.name]) - Number(favorites[a.name]);
+      if (favoriteDifference) return favoriteDifference;
+      if (iconPriorityToggle.checked) {
+        const aType = activeIcons[a.name];
+        const bType = activeIcons[b.name];
+        if (aType && !bType) return -1;
+        if (!aType && bType) return 1;
+        if (aType && bType && iconPriority[aType] !== iconPriority[bType]) {
+          return iconPriority[aType] - iconPriority[bType];
+        }
+      }
+      return a.index - b.index;
+    })
+    .map(item => item.name);
+
+  for (const name of sortedNames) {
+    if (!visibleNames[name]) continue;
+    const value = values[name];
+    const isFavorite = favorites[name];
+
+    const item = document.createElement("section");
+    const valueLimit = name === "EN" ? 10 : 3;
+    item.className = "item" + (value >= valueLimit ? " full" : "") +
+      (marked[name] ? " marked" : "");
+
+    // 枠の名前
+    const label = document.createElement("div");
+    label.className = "name";
+    label.textContent = displayName(name);
+
+    const iconType = activeIcons[name];
+    if (iconType) item.classList.add("has-arcana-icons");
+    const iconRow = document.createElement("div");
+    iconRow.className = "arcana-icons";
+    if (iconType) {
+      const icon = document.createElement("span");
+      icon.className = "arcana-icon icon-" + iconType.toLowerCase();
+      icon.textContent = iconType;
+      icon.setAttribute("aria-hidden", "true");
+      iconRow.append(icon);
+    }
+
+    // 数値
+    const number = document.createElement("div");
+    number.className = "value";
+    number.textContent = String(value);
+
+    // 数値とマーク類を中央にまとめる
+    const counterArea = document.createElement("div");
+    counterArea.className = "counter-area";
+
+    // お気に入りボタン
+    const favoriteRow = document.createElement("div");
+    favoriteRow.className = "favorite-row";
+
+    const favoriteButton = document.createElement("button");
+    favoriteButton.type = "button";
+    favoriteButton.className =
+      "favorite" + (isFavorite ? " active" : "");
+    favoriteButton.textContent = isFavorite ? "★" : "☆";
+    favoriteButton.title = isFavorite
+      ? "お気に入りを解除"
+      : "お気に入りに登録";
+    favoriteButton.setAttribute(
+      "aria-label",
+      name + (isFavorite ? "のお気に入りを解除" : "をお気に入りに登録")
+    );
+    favoriteButton.setAttribute(
+      "aria-pressed",
+      String(isFavorite)
+    );
+
+    favoriteButton.addEventListener("click", () => {
+      favorites[name] = !favorites[name];
+      render();
+    });
+
+    favoriteRow.append(favoriteButton);
+
+    // 指定された枠だけに特殊マークボタンを表示（ENには付けない）
+    if (name !== "EN" && markableNames.has(name)) {
+      const markButton = document.createElement("button");
+      markButton.type = "button";
+      markButton.className = "mark-button" + (marked[name] ? " active" : "");
+      markButton.textContent = "⊕";
+      markButton.title = marked[name] ? "赤枠を解除" : "赤枠にする";
+      markButton.setAttribute("aria-label", name + (marked[name] ? "の特殊マークを解除" : "に特殊マークを付ける"));
+      markButton.setAttribute("aria-pressed", String(marked[name]));
+      markButton.addEventListener("click", () => {
+        marked[name] = !marked[name];
+        render();
+      });
+      favoriteRow.append(markButton);
+    }
+
+    // 数字の下にお気に入り・特殊マークを表示
+    counterArea.append(number, favoriteRow);
+
+    // 増減ボタン（縦表示では下に横並び、横表示では右に縦並び）
+    const controls = document.createElement("div");
+    controls.className = "controls";
+
+    const minusButton = document.createElement("button");
+    minusButton.type = "button";
+    minusButton.className = "minus";
+    minusButton.textContent = "−";
+    minusButton.title = "1減らす";
+    minusButton.setAttribute("aria-label", name + "を減らす");
+    minusButton.disabled = value <= 0;
+
+    minusButton.addEventListener("click", () => {
+      changeValue(name, -1);
+    });
+
+    const plusButton = document.createElement("button");
+    plusButton.type = "button";
+    plusButton.className = "plus";
+    plusButton.textContent = "+";
+    plusButton.title = "1増やす";
+    plusButton.setAttribute("aria-label", name + "を増やす");
+    plusButton.disabled = value >= valueLimit;
+
+    plusButton.addEventListener("click", () => {
+      changeValue(name, 1);
+    });
+
+    controls.append(minusButton, plusButton);
+
+    // +3ボタンはEN専用。
+    if (name === "EN") {
+      const plusThreeButton = document.createElement("button");
+      plusThreeButton.type = "button";
+      plusThreeButton.className = "plus";
+      plusThreeButton.textContent = "+3";
+      plusThreeButton.title = "3増やす（上限10）";
+      plusThreeButton.setAttribute("aria-label", "ENを3増やす");
+      plusThreeButton.disabled = value >= 10;
+      plusThreeButton.addEventListener("click", () => {
+        changeValue(name, 3);
+      });
+      controls.append(plusThreeButton);
+    }
+
+    item.append(
+      label,
+      iconRow,
+      counterArea,
+      controls
+    );
+
+    grid.append(item);
+  }
+
+  // 合計値
+  // アルカナ合計にはENを含めない。
+  const sum = names.reduce(
+    (acc, name) => acc + (name === "EN" ? 0 : values[name]),
+    0
+  );
+
+  total.textContent = `合計：${sum} / 72`;
+}
+
+// 数値を変更
+function changeValue(name, amount) {
+  const limit = name === "EN" ? 10 : 3;
+  values[name] = Math.max(
+    0,
+    Math.min(limit, values[name] + amount)
+  );
+
+  render();
+}
+
+// 全リセット：数値と特殊マークのみ初期化。枠の表示状態とお気に入りは保持。
+resetButton.addEventListener("click", () => {
+  const confirmed = window.confirm(
+    "数値と特殊マークをリセットしますか？（枠の表示状態とお気に入り設定は変わりません）"
+  );
+
+  if (!confirmed) return;
+
+  for (const name of names) {
+    values[name] = 0;
+    marked[name] = false;
+  }
+
+  render();
+});
+
+// ☆リセット：確認後に全お気に入りを解除する。数値・表示状態は変更しない。
+favoriteResetButton.addEventListener("click", () => {
+  const confirmed = window.confirm("すべてのお気に入りを解除しますか？");
+  if (!confirmed) return;
+  for (const name of names) favorites[name] = false;
+  render();
+});
+
+// 初期表示
+document.body.dataset.theme = themeSelect.value;
+grid.dataset.nameSize = nameSizeSelect.value;
+applyButtonPosition();
+applyDisplayMode();
+render();
+</script>
+</body>
+</html>
